@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Pose } from '@mediapipe/pose';
+import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
+import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import axios from 'axios';
 import { API_URL } from '../config';
 import './VideoCapture.css';
@@ -143,21 +144,37 @@ const VideoCapture = ({ onDetectionResult }) => {
           }
           
           const ctx = canvasRef.current.getContext('2d');
+          ctx.save();
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
           
-          // Draw ONLY the live video frame for smooth continuous playback
-          // The server's annotated image is NOT used because it contains a stale video frame
+          // Draw the live video frame for smooth continuous playback
           ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
           
-          // Throttled detection - only send to server if enough time has passed
-          // Server response is used only for risk calculations, not for display
+          // Draw skeleton overlay locally at 60 FPS using MediaPipe drawing utilities
           if (results.poseLandmarks) {
+            // Draw pose connections (skeleton lines)
+            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+              color: '#00FF00',
+              lineWidth: 4
+            });
+            
+            // Draw pose landmarks (joint points)
+            drawLandmarks(ctx, results.poseLandmarks, {
+              color: '#FF0000',
+              lineWidth: 2,
+              radius: 6
+            });
+            
+            // Throttled detection - only send to server if enough time has passed
+            // Server response is used only for risk calculations, not for display
             const now = Date.now();
             if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
               lastRequestTime.current = now;
               calculateAndDetectACL(results);
             }
           }
+          
+          ctx.restore();
         }
       });
 
@@ -170,15 +187,12 @@ const VideoCapture = ({ onDetectionResult }) => {
     checkBackendConnection();
 
     return () => {
-      if (camera) {
-        camera.stop();
-      }
+      // Cleanup on unmount only
       if (pendingRequest.current) {
-        // Cancel pending request if component unmounts
         pendingRequest.current.cancel?.();
       }
     };
-  }, [checkBackendConnection, camera, calculateAndDetectACL]);
+  }, [checkBackendConnection, calculateAndDetectACL]);
 
   const startCamera = async () => {
     if (!videoRef.current || !pose) return;
