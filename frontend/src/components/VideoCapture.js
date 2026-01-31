@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Pose } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
 import axios from 'axios';
+import { API_URL } from '../config';
 import './VideoCapture.css';
 
 const VideoCapture = ({ onDetectionResult }) => {
@@ -19,7 +20,7 @@ const VideoCapture = ({ onDetectionResult }) => {
 
   const checkBackendConnection = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:8000/health', {
+      const response = await axios.get(`${API_URL}/health`, {
         timeout: 3000
       });
       if (response.data) {
@@ -62,7 +63,7 @@ const VideoCapture = ({ onDetectionResult }) => {
       
       // Send to backend for ACL detection
       const response = await axios.post(
-        'http://localhost:8000/detect-base64',
+        `${API_URL}/detect-base64`,
         { image: imageData },
         { 
           cancelToken: cancelTokenSource.token,

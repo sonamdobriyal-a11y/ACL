@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
+import { API_URL } from '../config';
 import './ImageUpload.css';
 
 const ImageUpload = ({ onDetectionResult }) => {
@@ -37,7 +38,7 @@ const ImageUpload = ({ onDetectionResult }) => {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await axios.post('http://localhost:8000/detect', formData, {
+      const response = await axios.post(`${API_URL}/detect`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
