@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <!-- Femur (thigh bone) -->
+  <path d="M180 50 L180 180 L220 180 L220 50 Z" fill="#e0e0e0" stroke="#999" stroke-width="2"/>
+  
+  <!-- Tibia (shin bone) -->
+  <path d="M180 220 L180 350 L220 350 L220 220 Z" fill="#e0e0e0" stroke="#999" stroke-width="2"/>
+  
+  <!-- Knee joint -->
+  <circle cx="200" cy="200" r="60" fill="#f5f5f5" stroke="#999" stroke-width="2"/>
+  
+  <!-- ACL (Anterior Cruciate Ligament) -->
+  <path d="M185 180 L215 220" stroke="#667eea" stroke-width="4" stroke-linecap="round"/>
+  <path d="M185 180 L215 220" stroke="#764ba2" stroke-width="2" stroke-linecap="round" stroke-dasharray="5,5"/>
+  
+  <!-- PCL (Posterior Cruciate Ligament) -->
+  <path d="M215 180 L185 220" stroke="#ccc" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Patella (kneecap) -->
+  <ellipse cx="160" cy="200" rx="25" ry="35" fill="#d0d0d0" stroke="#999" stroke-width="2"/>
+  
+  <!-- Labels -->
+  <text x="200" y="30" font-family="Arial" font-size="16" font-weight="bold" fill="#333" text-anchor="middle">Knee Anatomy</text>
+  <text x="250" cy="50" font-family="Arial" font-size="12" fill="#333">Femur</text>
+  <text x="250" y="330" font-family="Arial" font-size="12" fill="#333">Tibia</text>
+  <text x="100" y="200" font-family="Arial" font-size="12" fill="#333">Patella</text>
+  <text x="280" y="190" font-family="Arial" font-size="12" fill="#667eea" font-weight="bold">ACL</text>
+  
+  <!-- Arrow pointing to ACL -->
+  <path d="M270 195 L220 195" stroke="#667eea" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#667eea" />
+    </marker>
+  </defs>
+</svg>

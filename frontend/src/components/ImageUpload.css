@@ -1,0 +1,147 @@
+.image-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.upload-area {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.drop-zone {
+  width: 100%;
+  min-height: 300px;
+  border: 3px dashed #ccc;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #f9f9f9;
+}
+
+.drop-zone:hover {
+  border-color: #667eea;
+  background: #f0f0f0;
+}
+
+.drop-zone.drag-over {
+  border-color: #667eea;
+  background: #e8e8ff;
+}
+
+.drop-zone-content {
+  text-align: center;
+  color: #666;
+}
+
+.drop-zone-content svg {
+  margin-bottom: 15px;
+  color: #999;
+}
+
+.drop-zone-subtitle {
+  font-size: 0.9rem;
+  margin-top: 10px;
+  opacity: 0.7;
+}
+
+.preview-container {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.preview-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.btn-reset {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-reset:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.error-message {
+  color: #f44336;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #ffebee;
+  border-radius: 5px;
+  text-align: center;
+  width: 100%;
+}
+
+.upload-controls {
+  display: flex;
+  gap: 15px;
+}
+
+.btn-upload {
+  padding: 12px 30px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+  background: #667eea;
+  color: white;
+}
+
+.btn-upload:hover:not(:disabled) {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-upload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .drop-zone {
+    min-height: 250px;
+  }
+  
+  .preview-container {
+    position: relative;
+  }
+  
+  .btn-reset {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .drop-zone {
+    min-height: 200px;
+  }
+  
+  .drop-zone-content p {
+    font-size: 0.9rem;
+  }
+  
+  .drop-zone-subtitle {
+    font-size: 0.8rem;
+  }
+}
