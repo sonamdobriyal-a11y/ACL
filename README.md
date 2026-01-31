@@ -190,17 +190,37 @@ Detect ACL from base64 encoded image.
 
 Deploy to production in 3 simple steps:
 
-1. **Backend**: Deploy to Railway (free tier)
+1. **Backend**: Deploy to Render or Railway (free tier)
 2. **Frontend**: Deploy to Vercel (free tier)
 3. **Configure**: Set environment variables
 
-📖 **Full Guide**: See [QUICK_DEPLOY.md](QUICK_DEPLOY.md) for step-by-step instructions
+### Choose Your Backend Platform:
+
+#### Option 1: Render (Recommended for reliability) ⭐
+- ✅ 750 free hours/month
+- ✅ Automatic HTTPS
+- ✅ Simple setup
+- ⚠️ Cold starts after 15 min idle (free tier)
+
+📖 **[Deploy on Render Guide](RENDER_DEPLOY.md)** - Complete Render deployment guide
+
+#### Option 2: Railway (Recommended for speed)
+- ✅ $5 credit/month
+- ✅ Faster deployment
+- ✅ No cold starts on free tier
+
+📖 **[Deploy on Railway Guide](QUICK_DEPLOY.md)** - Railway deployment guide
+
+### Frontend Deployment (Both options use Vercel)
+
+📖 **Full Guide**: See deployment guides above for step-by-step instructions
 
 📋 **Checklist**: Use [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) to ensure everything works
 
-### Deployment Options
+### All Deployment Options
 
-- **Vercel + Railway** ⭐ Recommended (Free tier available)
+- **Render + Vercel** ⭐ Most reliable (750 free hours)
+- **Railway + Vercel** ⭐ Fastest (but $5 credit)
 - **Heroku** (Paid, simpler setup)
 - **Docker** (Full control, VPS required)
 - **AWS/GCP/Azure** (Enterprise, most flexible)
