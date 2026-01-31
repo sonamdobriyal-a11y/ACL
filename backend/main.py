@@ -17,9 +17,20 @@ from mediapipe import ImageFormat
 app = FastAPI(title="ACL Tear Detection API")
 
 # Enable CORS
+# Allow both local development and production frontend
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://acl-mu.vercel.app",  # Production frontend
+]
+
+# Add environment variable for additional origins if needed
+if os.getenv("FRONTEND_URL"):
+    allowed_origins.append(os.getenv("FRONTEND_URL"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
