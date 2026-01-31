@@ -16,7 +16,6 @@ const VideoCapture = ({ onDetectionResult }) => {
   const lastRequestTime = useRef(0);
   const pendingRequest = useRef(null);
   const errorCount = useRef(0);
-  const lastAnnotatedImageObj = useRef(null); // Store pre-loaded Image object
   const REQUEST_INTERVAL = 3000; // 3 seconds between requests
 
   const checkBackendConnection = useCallback(async () => {
@@ -74,14 +73,8 @@ const VideoCapture = ({ onDetectionResult }) => {
 
       if (response.data.success) {
         onDetectionResult(response.data);
-        // Pre-load the server's annotated image for continuous display
-        if (response.data.annotated_image) {
-          const img = new Image();
-          img.onload = () => {
-            lastAnnotatedImageObj.current = img; // Store the loaded Image object
-          };
-          img.src = response.data.annotated_image;
-        }
+        // Server's annotated image is not used in live camera mode
+        // We only use the risk calculation results
         setBackendConnected(true);
         setBackendError(null);
         errorCount.current = 0;
@@ -139,7 +132,7 @@ const VideoCapture = ({ onDetectionResult }) => {
 
       poseInstance.onResults((results) => {
         if (videoRef.current && canvasRef.current) {
-          // Always draw the current video frame to canvas for smooth display
+          // Always draw the current video frame to canvas for smooth live playback
           const videoWidth = videoRef.current.videoWidth || 640;
           const videoHeight = videoRef.current.videoHeight || 480;
           
@@ -152,18 +145,12 @@ const VideoCapture = ({ onDetectionResult }) => {
           const ctx = canvasRef.current.getContext('2d');
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
           
-          // Draw the raw video frame first (for smooth playback)
+          // Draw ONLY the live video frame for smooth continuous playback
+          // The server's annotated image is NOT used because it contains a stale video frame
           ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
           
-          // If we have a pre-loaded server skeleton, draw it on top
-          if (lastAnnotatedImageObj.current) {
-            // Draw semi-transparent overlay with skeleton
-            ctx.globalAlpha = 0.8; // Make skeleton slightly transparent
-            ctx.drawImage(lastAnnotatedImageObj.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-            ctx.globalAlpha = 1.0; // Reset alpha
-          }
-          
           // Throttled detection - only send to server if enough time has passed
+          // Server response is used only for risk calculations, not for display
           if (results.poseLandmarks) {
             const now = Date.now();
             if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
@@ -226,7 +213,6 @@ const VideoCapture = ({ onDetectionResult }) => {
     }
     setIsStreaming(false);
     lastRequestTime.current = 0;
-    lastAnnotatedImageObj.current = null; // Clear cached skeleton
   };
 
   return (
