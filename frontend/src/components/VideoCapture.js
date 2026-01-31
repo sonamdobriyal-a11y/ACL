@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Pose } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
 import axios from 'axios';
@@ -17,57 +17,7 @@ const VideoCapture = ({ onDetectionResult }) => {
   const errorCount = useRef(0);
   const REQUEST_INTERVAL = 3000; // 3 seconds between requests
 
-  useEffect(() => {
-    const initializePose = async () => {
-      const poseInstance = new Pose({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-        },
-      });
-
-      poseInstance.setOptions({
-        modelComplexity: 2,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      poseInstance.onResults((results) => {
-        if (videoRef.current) {
-          // Just display the video, server will provide the overlay
-          if (results.poseLandmarks) {
-            // Throttled detection - only send if enough time has passed
-            const now = Date.now();
-            if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
-              lastRequestTime.current = now;
-              calculateAndDetectACL(results);
-            }
-          }
-        }
-      });
-
-      setPose(poseInstance);
-    };
-
-    initializePose();
-
-    // Check backend connection on mount
-    checkBackendConnection();
-
-    return () => {
-      if (camera) {
-        camera.stop();
-      }
-      if (pendingRequest.current) {
-        // Cancel pending request if component unmounts
-        pendingRequest.current.cancel?.();
-      }
-    };
-  }, []);
-
-  const checkBackendConnection = async () => {
+  const checkBackendConnection = useCallback(async () => {
     try {
       const response = await axios.get('http://localhost:8000/health', {
         timeout: 3000
@@ -82,9 +32,9 @@ const VideoCapture = ({ onDetectionResult }) => {
       setBackendError('Backend server is not running. Please start it first.');
       errorCount.current = 0;
     }
-  };
+  }, []);
 
-  const calculateAndDetectACL = async (results) => {
+  const calculateAndDetectACL = useCallback(async (results) => {
     if (!results.poseLandmarks || !videoRef.current) return;
 
     // Don't send requests if backend is not connected
@@ -174,7 +124,57 @@ const VideoCapture = ({ onDetectionResult }) => {
       
       pendingRequest.current = null;
     }
-  };
+  }, [backendConnected, onDetectionResult, checkBackendConnection]);
+
+  useEffect(() => {
+    const initializePose = async () => {
+      const poseInstance = new Pose({
+        locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+        },
+      });
+
+      poseInstance.setOptions({
+        modelComplexity: 2,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      poseInstance.onResults((results) => {
+        if (videoRef.current) {
+          // Just display the video, server will provide the overlay
+          if (results.poseLandmarks) {
+            // Throttled detection - only send if enough time has passed
+            const now = Date.now();
+            if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
+              lastRequestTime.current = now;
+              calculateAndDetectACL(results);
+            }
+          }
+        }
+      });
+
+      setPose(poseInstance);
+    };
+
+    initializePose();
+
+    // Check backend connection on mount
+    checkBackendConnection();
+
+    return () => {
+      if (camera) {
+        camera.stop();
+      }
+      if (pendingRequest.current) {
+        // Cancel pending request if component unmounts
+        pendingRequest.current.cancel?.();
+      }
+    };
+  }, [checkBackendConnection, camera, calculateAndDetectACL]);
 
   const startCamera = async () => {
     if (!videoRef.current || !pose) return;
