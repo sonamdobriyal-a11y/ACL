@@ -16,6 +16,7 @@ const VideoCapture = ({ onDetectionResult }) => {
   const lastRequestTime = useRef(0);
   const pendingRequest = useRef(null);
   const errorCount = useRef(0);
+  const lastAnnotatedImage = useRef(null); // Store last server skeleton overlay
   const REQUEST_INTERVAL = 3000; // 3 seconds between requests
 
   const checkBackendConnection = useCallback(async () => {
@@ -73,21 +74,9 @@ const VideoCapture = ({ onDetectionResult }) => {
 
       if (response.data.success) {
         onDetectionResult(response.data);
-        // Update canvas with server's annotated image
-        if (canvasRef.current && response.data.annotated_image && videoRef.current) {
-          const img = new Image();
-          img.onload = () => {
-            // Match canvas size to video size
-            const videoWidth = videoRef.current.videoWidth || 640;
-            const videoHeight = videoRef.current.videoHeight || 480;
-            canvasRef.current.width = videoWidth;
-            canvasRef.current.height = videoHeight;
-            
-            const ctx = canvasRef.current.getContext('2d');
-            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-            ctx.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
-          };
-          img.src = response.data.annotated_image;
+        // Store the server's annotated image for continuous display
+        if (response.data.annotated_image) {
+          lastAnnotatedImage.current = response.data.annotated_image;
         }
         setBackendConnected(true);
         setBackendError(null);
@@ -145,10 +134,31 @@ const VideoCapture = ({ onDetectionResult }) => {
       });
 
       poseInstance.onResults((results) => {
-        if (videoRef.current) {
-          // Just display the video, server will provide the overlay
+        if (videoRef.current && canvasRef.current) {
+          // Always draw the current video frame to canvas for smooth display
+          const videoWidth = videoRef.current.videoWidth || 640;
+          const videoHeight = videoRef.current.videoHeight || 480;
+          canvasRef.current.width = videoWidth;
+          canvasRef.current.height = videoHeight;
+          
+          const ctx = canvasRef.current.getContext('2d');
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          
+          // If we have a server-annotated image with skeleton, use that
+          // Otherwise, just draw the raw video
+          if (lastAnnotatedImage.current) {
+            const img = new Image();
+            img.onload = () => {
+              ctx.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
+            };
+            img.src = lastAnnotatedImage.current;
+          } else {
+            // No skeleton yet, just draw raw video
+            ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+          }
+          
+          // Throttled detection - only send to server if enough time has passed
           if (results.poseLandmarks) {
-            // Throttled detection - only send if enough time has passed
             const now = Date.now();
             if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
               lastRequestTime.current = now;
@@ -210,6 +220,7 @@ const VideoCapture = ({ onDetectionResult }) => {
     }
     setIsStreaming(false);
     lastRequestTime.current = 0;
+    lastAnnotatedImage.current = null; // Clear cached skeleton
   };
 
   return (
@@ -261,14 +272,14 @@ const VideoCapture = ({ onDetectionResult }) => {
             className="video-element"
             autoPlay
             playsInline
-            style={{ display: isStreaming ? 'block' : 'none' }}
+            style={{ display: 'none' }}
           />
           <canvas
             ref={canvasRef}
             className="canvas-element"
             width={640}
             height={480}
-            style={{ display: isStreaming ? 'block' : 'none' }}
+            style={{ display: isStreaming ? 'block' : 'none', position: 'relative' }}
           />
           {!isStreaming && (
             <div className="video-placeholder">
