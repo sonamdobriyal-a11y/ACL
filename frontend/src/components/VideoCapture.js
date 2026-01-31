@@ -16,7 +16,7 @@ const VideoCapture = ({ onDetectionResult }) => {
   const lastRequestTime = useRef(0);
   const pendingRequest = useRef(null);
   const errorCount = useRef(0);
-  const lastAnnotatedImage = useRef(null); // Store last server skeleton overlay
+  const lastAnnotatedImageObj = useRef(null); // Store pre-loaded Image object
   const REQUEST_INTERVAL = 3000; // 3 seconds between requests
 
   const checkBackendConnection = useCallback(async () => {
@@ -74,9 +74,13 @@ const VideoCapture = ({ onDetectionResult }) => {
 
       if (response.data.success) {
         onDetectionResult(response.data);
-        // Store the server's annotated image for continuous display
+        // Pre-load the server's annotated image for continuous display
         if (response.data.annotated_image) {
-          lastAnnotatedImage.current = response.data.annotated_image;
+          const img = new Image();
+          img.onload = () => {
+            lastAnnotatedImageObj.current = img; // Store the loaded Image object
+          };
+          img.src = response.data.annotated_image;
         }
         setBackendConnected(true);
         setBackendError(null);
@@ -138,23 +142,25 @@ const VideoCapture = ({ onDetectionResult }) => {
           // Always draw the current video frame to canvas for smooth display
           const videoWidth = videoRef.current.videoWidth || 640;
           const videoHeight = videoRef.current.videoHeight || 480;
-          canvasRef.current.width = videoWidth;
-          canvasRef.current.height = videoHeight;
+          
+          // Only resize canvas if dimensions changed (prevents flickering)
+          if (canvasRef.current.width !== videoWidth || canvasRef.current.height !== videoHeight) {
+            canvasRef.current.width = videoWidth;
+            canvasRef.current.height = videoHeight;
+          }
           
           const ctx = canvasRef.current.getContext('2d');
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
           
-          // If we have a server-annotated image with skeleton, use that
-          // Otherwise, just draw the raw video
-          if (lastAnnotatedImage.current) {
-            const img = new Image();
-            img.onload = () => {
-              ctx.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
-            };
-            img.src = lastAnnotatedImage.current;
-          } else {
-            // No skeleton yet, just draw raw video
-            ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+          // Draw the raw video frame first (for smooth playback)
+          ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+          
+          // If we have a pre-loaded server skeleton, draw it on top
+          if (lastAnnotatedImageObj.current) {
+            // Draw semi-transparent overlay with skeleton
+            ctx.globalAlpha = 0.8; // Make skeleton slightly transparent
+            ctx.drawImage(lastAnnotatedImageObj.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+            ctx.globalAlpha = 1.0; // Reset alpha
           }
           
           // Throttled detection - only send to server if enough time has passed
@@ -220,7 +226,7 @@ const VideoCapture = ({ onDetectionResult }) => {
     }
     setIsStreaming(false);
     lastRequestTime.current = 0;
-    lastAnnotatedImage.current = null; // Clear cached skeleton
+    lastAnnotatedImageObj.current = null; // Clear cached skeleton
   };
 
   return (
