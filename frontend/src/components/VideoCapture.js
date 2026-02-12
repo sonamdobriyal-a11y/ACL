@@ -1,7 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Pose, POSE_CONNECTIONS } from '@mediapipe/pose';
-import { Camera } from '@mediapipe/camera_utils';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
+import { PoseLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision';
 import axios from 'axios';
 import { API_URL } from '../config';
 import './VideoCapture.css';
@@ -11,13 +9,24 @@ const VideoCapture = ({ onDetectionResult }) => {
   const canvasRef = useRef(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [camera, setCamera] = useState(null);
-  const [pose, setPose] = useState(null);
+  const [poseLandmarker, setPoseLandmarker] = useState(null);
   const [backendConnected, setBackendConnected] = useState(true);
   const [backendError, setBackendError] = useState(null);
   const lastRequestTime = useRef(0);
   const pendingRequest = useRef(null);
   const errorCount = useRef(0);
+  const animationFrameRef = useRef(null);
+  const isStreamingRef = useRef(false);
   const REQUEST_INTERVAL = 3000; // 3 seconds between requests
+  const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+  
+  // Pose connections for drawing skeleton (MediaPipe Pose landmark indices)
+  const POSE_CONNECTIONS = [
+    [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19], [12, 14],
+    [14, 16], [16, 18], [16, 20], [16, 22], [18, 20], [11, 23], [12, 24], [23, 24],
+    [23, 25], [24, 26], [25, 27], [26, 28], [27, 29], [28, 30], [29, 31], [30, 32],
+    [27, 31], [28, 32]
+  ];
 
   const checkBackendConnection = useCallback(async () => {
     try {
@@ -36,8 +45,8 @@ const VideoCapture = ({ onDetectionResult }) => {
     }
   }, []);
 
-  const calculateAndDetectACL = useCallback(async (results) => {
-    if (!results.poseLandmarks || !videoRef.current) return;
+  const calculateAndDetectACL = useCallback(async (landmarks) => {
+    if (!landmarks || landmarks.length === 0 || !videoRef.current) return;
 
     // Don't send requests if backend is not connected
     if (!backendConnected) {
@@ -115,73 +124,33 @@ const VideoCapture = ({ onDetectionResult }) => {
   }, [backendConnected, onDetectionResult, checkBackendConnection]);
 
   useEffect(() => {
-    const initializePose = async () => {
-      const poseInstance = new Pose({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-        },
-      });
+    const initializePoseLandmarker = async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+        );
+        
+        const landmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: MODEL_URL,
+            delegate: "GPU"
+          },
+          outputSegmentationMasks: false,
+          minPoseDetectionConfidence: 0.5,
+          minPosePresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+          numPoses: 1,
+          runningMode: "VIDEO"
+        });
 
-      poseInstance.setOptions({
-        modelComplexity: 2,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      poseInstance.onResults((results) => {
-        if (videoRef.current && canvasRef.current) {
-          // Always draw the current video frame to canvas for smooth live playback
-          const videoWidth = videoRef.current.videoWidth || 640;
-          const videoHeight = videoRef.current.videoHeight || 480;
-          
-          // Only resize canvas if dimensions changed (prevents flickering)
-          if (canvasRef.current.width !== videoWidth || canvasRef.current.height !== videoHeight) {
-            canvasRef.current.width = videoWidth;
-            canvasRef.current.height = videoHeight;
-          }
-          
-          const ctx = canvasRef.current.getContext('2d');
-          ctx.save();
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-          
-          // Draw the live video frame for smooth continuous playback
-          ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-          
-          // Draw skeleton overlay locally at 60 FPS using MediaPipe drawing utilities
-          if (results.poseLandmarks) {
-            // Draw pose connections (skeleton lines)
-            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-              color: '#00FF00',
-              lineWidth: 4
-            });
-            
-            // Draw pose landmarks (joint points)
-            drawLandmarks(ctx, results.poseLandmarks, {
-              color: '#FF0000',
-              lineWidth: 2,
-              radius: 6
-            });
-            
-            // Throttled detection - only send to server if enough time has passed
-            // Server response is used only for risk calculations, not for display
-            const now = Date.now();
-            if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
-              lastRequestTime.current = now;
-              calculateAndDetectACL(results);
-            }
-          }
-          
-          ctx.restore();
-        }
-      });
-
-      setPose(poseInstance);
+        setPoseLandmarker(landmarker);
+      } catch (error) {
+        console.error('Error initializing Pose Landmarker:', error);
+        setBackendError('Failed to initialize pose detection. Please refresh the page.');
+      }
     };
 
-    initializePose();
+    initializePoseLandmarker();
 
     // Check backend connection on mount
     checkBackendConnection();
@@ -191,25 +160,87 @@ const VideoCapture = ({ onDetectionResult }) => {
       if (pendingRequest.current) {
         pendingRequest.current.cancel?.();
       }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
-  }, [checkBackendConnection, calculateAndDetectACL]);
+  }, [checkBackendConnection]);
 
   const startCamera = async () => {
-    if (!videoRef.current || !pose) return;
+    if (!videoRef.current || !poseLandmarker) return;
 
     try {
-      const cameraInstance = new Camera(videoRef.current, {
-        onFrame: async () => {
-          await pose.send({ image: videoRef.current });
-        },
-        width: 640,
-        height: 480,
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 }
+      });
+      
+      videoRef.current.srcObject = stream;
+      
+      const drawingUtils = new DrawingUtils(canvasRef.current.getContext('2d'));
+      let lastVideoTime = -1;
+
+      const processFrame = () => {
+        if (!videoRef.current || !canvasRef.current || !poseLandmarker || !isStreamingRef.current) {
+          return;
+        }
+
+        const videoWidth = videoRef.current.videoWidth || 640;
+        const videoHeight = videoRef.current.videoHeight || 480;
+
+        // Resize canvas if needed
+        if (canvasRef.current.width !== videoWidth || canvasRef.current.height !== videoHeight) {
+          canvasRef.current.width = videoWidth;
+          canvasRef.current.height = videoHeight;
+        }
+
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+        // Draw the live video frame
+        ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+
+        // Detect pose landmarks
+        const startTimeMs = performance.now();
+        const results = poseLandmarker.detectForVideo(videoRef.current, startTimeMs);
+
+        // Draw skeleton overlay if landmarks detected
+        if (results.landmarks && results.landmarks.length > 0) {
+          const landmarks = results.landmarks[0];
+          
+          // Draw pose connections and landmarks using DrawingUtils
+          drawingUtils.drawLandmarks(landmarks, {
+            radius: 6,
+            color: '#FF0000'
+          });
+          drawingUtils.drawConnectors(landmarks, POSE_CONNECTIONS, {
+            color: '#00FF00',
+            lineWidth: 4
+          });
+
+          // Throttled detection - only send to server if enough time has passed
+          const now = Date.now();
+          if (now - lastRequestTime.current >= REQUEST_INTERVAL) {
+            lastRequestTime.current = now;
+            calculateAndDetectACL(landmarks);
+          }
+        }
+
+        // Continue processing frames
+        if (isStreamingRef.current) {
+          animationFrameRef.current = requestAnimationFrame(processFrame);
+        }
+      };
+
+      videoRef.current.addEventListener('loadeddata', () => {
+        videoRef.current.play();
+        setIsStreaming(true);
+        isStreamingRef.current = true;
+        lastRequestTime.current = 0;
+        // Start processing frames
+        animationFrameRef.current = requestAnimationFrame(processFrame);
       });
 
-      cameraInstance.start();
-      setCamera(cameraInstance);
-      setIsStreaming(true);
-      lastRequestTime.current = 0; // Reset timer
+      setCamera(stream);
     } catch (error) {
       console.error('Error starting camera:', error);
       alert('Error accessing camera. Please ensure you have granted camera permissions.');
@@ -217,9 +248,17 @@ const VideoCapture = ({ onDetectionResult }) => {
   };
 
   const stopCamera = () => {
+    isStreamingRef.current = false;
     if (camera) {
-      camera.stop();
+      camera.getTracks().forEach(track => track.stop());
       setCamera(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
     if (pendingRequest.current) {
       pendingRequest.current.cancel?.();

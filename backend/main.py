@@ -73,7 +73,20 @@ class PoseLandmark:
 
 
 def calculate_angle(point1, point2, point3):
-    """Calculate angle between three points in degrees, with improved hyperextension detection"""
+    """
+    Calculate knee angle between three points in degrees.
+    
+    Args:
+        point1: hip landmark
+        point2: knee landmark (vertex of the angle)
+        point3: ankle landmark
+    
+    Returns:
+        Angle in degrees (0-180° range)
+        - 0-30°: Highly flexed (knee bent)
+        - 30-160°: Normal flexion range
+        - 160-180°: Extended (knee straight) or hyperextended
+    """
     a = np.array([point1.x, point1.y])  # hip
     b = np.array([point2.x, point2.y])  # knee (vertex)
     c = np.array([point3.x, point3.y])  # ankle
@@ -95,19 +108,9 @@ def calculate_angle(point1, point2, point3):
     cos_angle = np.clip(cos_angle, -1.0, 1.0)
     angle = np.arccos(cos_angle) * 180.0 / np.pi
     
-    # Detect hyperextension: if ankle is behind the knee relative to hip
-    # Cross product to determine direction
-    cross_product = vec_hip[0] * vec_ankle[1] - vec_hip[1] * vec_ankle[0]
-    
-    # If hyperextended (cross product < 0), the angle is > 180°
-    # Convert to show as small angle for easier detection
-    if cross_product < 0:  # Hyperextended
-        angle = 180 - angle  # This will give us a small angle for hyperextension
-    
-    # Normalize to 0-180 range
-    if angle > 180.0:
-        angle = 360 - angle
-    
+    # Return angle directly (0-180° range)
+    # The probability function will handle detecting hyperextension
+    # based on angle values > 170° combined with other factors
     return angle
 
 
