@@ -177,7 +177,6 @@ const VideoCapture = ({ onDetectionResult }) => {
       videoRef.current.srcObject = stream;
       
       const drawingUtils = new DrawingUtils(canvasRef.current.getContext('2d'));
-      let lastVideoTime = -1;
 
       const processFrame = () => {
         if (!videoRef.current || !canvasRef.current || !poseLandmarker || !isStreamingRef.current) {
